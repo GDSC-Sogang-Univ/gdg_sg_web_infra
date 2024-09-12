@@ -16,37 +16,51 @@ class WebInfraStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # Define VPC for RDS (Elastic Beanstalk can use the default VPC)
-        vpc = ec2.Vpc(self, "NextJsVPC", max_azs=2)
-
-        # Route 53 Hosted Zone lookup for gdsc.sg
-        hosted_zone = route53.HostedZone.from_lookup(
-            self, "HostedZone", domain_name="gdsc.sg"
-        )
-
-        # Request an SSL Certificate for gdsc.sg
-        certificate = acm.Certificate(
+        vpc = ec2.Vpc(
             self,
-            "GDSCCertificate",
-            domain_name="gdsc.sg",  # TODO fix
-            validation=acm.CertificateValidation.from_dns(hosted_zone),
+            "NextJsVPC",
+            max_azs=2,  # Define how many availability zones to use
+            nat_gateways=1,  # Allows outbound traffic to the internet
+            subnet_configuration=[
+                ec2.SubnetConfiguration(
+                    name="PublicSubnet", subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=24
+                ),
+                ec2.SubnetConfiguration(
+                    name="PrivateSubnet",
+                    subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
+                    cidr_mask=24,
+                ),
+            ],
         )
+        # Route 53 Hosted Zone lookup for gdsc.sg
+        # hosted_zone = route53.HostedZone.from_lookup(
+        #     self, "HostedZone", domain_name="gdsc.sg"
+        # )
+
+        # # Request an SSL Certificate for gdsc.sg
+        # certificate = acm.Certificate(
+        #     self,
+        #     "GDSCCertificate",
+        #     domain_name="gdsc.sg",  # TODO fix
+        #     validation=acm.CertificateValidation.from_dns(hosted_zone),
+        # )
 
         # Create the RDS instance
         db_instance = rds.DatabaseInstance(
             self,
             "NextJsDB",
             engine=rds.DatabaseInstanceEngine.postgres(
-                version=rds.PostgresEngineVersion.VER_12_5  # TODO fix
+                version=rds.PostgresEngineVersion.VER_16_3
             ),
             vpc=vpc,
             instance_type=ec2.InstanceType.of(
-                ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.MICRO
-            ),  # Smallest RDS instance (t2.micro)
+                ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MICRO
+            ),  # Smallest RDS instance (t3.micro)
             allocated_storage=20,  # Minimum storage
             max_allocated_storage=100,  # Auto-scaling storage
             database_name="nextjsdb",
             credentials=rds.Credentials.from_generated_secret(
-                "admin"
+                "postgres_admin"
             ),  # Auto-generated password
             removal_policy=RemovalPolicy.DESTROY,  # Use RemovalPolicy directly
             delete_automated_backups=True,
@@ -58,6 +72,26 @@ class WebInfraStack(Stack):
             self, "NextJsRepo", "next-production-image"
         )
 
+        # Create an IAM role for Elastic Beanstalk
+        instance_profile_role = iam.Role(
+            self,
+            "InstanceProfileRole",
+            assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "AWSElasticBeanstalkWebTier"
+                ),  # 웹 애플리케이션 용
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "AmazonEC2ContainerRegistryReadOnly"
+                ),  # ECR에서 이미지 pull
+            ],
+        )
+
+        # Create an instance profile for the role
+        instance_profile = iam.CfnInstanceProfile(
+            self, "InstanceProfile", roles=[instance_profile_role.role_name]
+        )
+
         # Elastic Beanstalk application
         app = eb.CfnApplication(self, "NextJsApp", application_name="NextJsApp")
 
@@ -67,13 +101,8 @@ class WebInfraStack(Stack):
             "NextJsEnvironment",
             environment_name="NextJsEnvironment",
             application_name=app.application_name,
-            solution_stack_name="64bit Amazon Linux 2 v3.3.10 running Docker",
+            solution_stack_name="64bit Amazon Linux 2023 v4.3.7 running Docker",
             option_settings=[
-                eb.CfnEnvironment.OptionSettingProperty(
-                    namespace="aws:elasticbeanstalk:application:environment",
-                    option_name="REPOSITORY_URI",
-                    value=ecr_repo.repository_uri,
-                ),
                 # Set LoadBalancerType to ALB
                 eb.CfnEnvironment.OptionSettingProperty(
                     namespace="aws:elasticbeanstalk:environment",
@@ -87,20 +116,35 @@ class WebInfraStack(Stack):
                     value="true",
                 ),
                 eb.CfnEnvironment.OptionSettingProperty(
-                    namespace="aws:elbv2:listener:443",
-                    option_name="SSLCertificateArns",
-                    value=certificate.certificate_arn,
+                    namespace="aws:ec2:vpc",
+                    option_name="Subnets",
+                    value=",".join([subnet.subnet_id for subnet in vpc.public_subnets]),
                 ),
                 eb.CfnEnvironment.OptionSettingProperty(
-                    namespace="aws:elbv2:listener:443",
-                    option_name="Protocol",
-                    value="HTTPS",
+                    namespace="aws:autoscaling:launchconfiguration",
+                    option_name="IamInstanceProfile",
+                    value=instance_profile.ref,
                 ),
+                # eb.CfnEnvironment.OptionSettingProperty(
+                #     namespace="aws:elbv2:listener:443",
+                #     option_name="SSLCertificateArns",
+                #     value=certificate.certificate_arn,
+                # ),
+                # eb.CfnEnvironment.OptionSettingProperty(
+                #     namespace="aws:elbv2:listener:443",
+                #     option_name="Protocol",
+                #     value="HTTPS",
+                # ),
                 # Docker image from ECR
                 eb.CfnEnvironment.OptionSettingProperty(
-                    namespace="aws:elasticbeanstalk:container:docker",
-                    option_name="Image",
-                    value=ecr_repo.repository_uri + ":latest",
+                    namespace="aws:autoscaling:asg",
+                    option_name="MinSize",
+                    value="1",  # 최소 인스턴스 수
+                ),
+                eb.CfnEnvironment.OptionSettingProperty(
+                    namespace="aws:autoscaling:asg",
+                    option_name="MaxSize",
+                    value="2",  # 최대 인스턴스 수
                 ),
                 # Database environment variables for Next.js app
                 eb.CfnEnvironment.OptionSettingProperty(
@@ -121,30 +165,15 @@ class WebInfraStack(Stack):
                 eb.CfnEnvironment.OptionSettingProperty(
                     namespace="aws:elasticbeanstalk:application:environment",
                     option_name="DB_USER",
-                    value="admin",  # Username as generated above
+                    value="postgres_admin",  # Username as generated above
                 ),
-                eb.CfnEnvironment.OptionSettingProperty(
-                    namespace="aws:elasticbeanstalk:application:environment",
-                    option_name="DB_PASSWORD",
-                    value=db_instance.secret.secret_value_from_json(
-                        "password"
-                    ).to_string(),
-                ),
-            ],
-        )
-
-        # Grant Elastic Beanstalk permissions to pull from ECR
-        eb_role = iam.Role(
-            self,
-            "ElasticBeanstalkRole",
-            assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "AWSElasticBeanstalkWebTier"
-                ),
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "AmazonEC2ContainerRegistryReadOnly"
-                ),
+                # eb.CfnEnvironment.OptionSettingProperty(
+                #     namespace="aws:elasticbeanstalk:application:environment",
+                #     option_name="DB_PASSWORD",
+                #     value=db_instance.secret.secret_value_from_json(
+                #         "password"
+                #     ).to_string(),
+                # ),
             ],
         )
         # route53.ARecord(

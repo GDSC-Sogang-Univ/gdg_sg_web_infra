@@ -86,7 +86,7 @@ class WebInfraStack(Stack):
                 ),  # ECR에서 이미지 pull
                 iam.ManagedPolicy.from_aws_managed_policy_name(
                     "AmazonSSMManagedInstanceCore"
-                ),
+                ),  # SSM을 통한 인스턴스 접근 및 db 접근
             ],
         )
 
@@ -96,13 +96,13 @@ class WebInfraStack(Stack):
         )
 
         # Elastic Beanstalk application
-        app = eb.CfnApplication(self, "NextJsApp", application_name="NextJsApp")
+        app = eb.CfnApplication(self, "GDG-WebApp", application_name="GDG-WebApp")
 
         # Elastic Beanstalk environment
         env = eb.CfnEnvironment(
             self,
-            "NextJsEnvironment",
-            environment_name="NextJsEnvironment",
+            "GDG-NextJs-Environment",
+            environment_name="GDG-NextJs-Environment",
             application_name=app.application_name,
             solution_stack_name="64bit Amazon Linux 2023 v4.3.7 running Docker",
             option_settings=[
@@ -138,7 +138,11 @@ class WebInfraStack(Stack):
                 #     option_name="Protocol",
                 #     value="HTTPS",
                 # ),
-                # Docker image from ECR
+                eb.CfnEnvironment.OptionSettingProperty(
+                    namespace="aws:autoscaling:launchconfiguration",
+                    option_name="InstanceType",
+                    value="t4g.medium",  # t4g 인스턴스 타입으로 변경
+                ),
                 eb.CfnEnvironment.OptionSettingProperty(
                     namespace="aws:autoscaling:asg",
                     option_name="MinSize",
@@ -148,6 +152,12 @@ class WebInfraStack(Stack):
                     namespace="aws:autoscaling:asg",
                     option_name="MaxSize",
                     value="2",  # 최대 인스턴스 수
+                ),
+                # Deployment policy 설정: Rolling with Additional Batch
+                eb.CfnEnvironment.OptionSettingProperty(
+                    namespace="aws:elasticbeanstalk:command",
+                    option_name="DeploymentPolicy",
+                    value="RollingWithAdditionalBatch",  # 추가 배치 후 롤링 배포
                 ),
                 # Database environment variables for Next.js app
                 eb.CfnEnvironment.OptionSettingProperty(

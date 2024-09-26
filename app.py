@@ -3,7 +3,6 @@ import os
 
 import aws_cdk as cdk
 
-from cd.deploy import EcrToElasticBeanstalkPipelineStack
 from web_infra.web_infra_stack import WebInfraStack
 
 app = cdk.App()
@@ -24,11 +23,11 @@ WebInfraStack(
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
 )
 
-EcrToElasticBeanstalkPipelineStack(
-    app,
-    "EcrToElasticBeanstalkPipelineStack",
-    env=cdk.Environment(
-        account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=os.getenv("CDK_DEFAULT_REGION")
-    ),
-)
+# EcrToElasticBeanstalkPipelineStack(
+#     app,
+#     "EcrToElasticBeanstalkPipelineStack",
+#     env=cdk.Environment(
+#         account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=os.getenv("CDK_DEFAULT_REGION")
+#     ),
+# )
 app.synth()

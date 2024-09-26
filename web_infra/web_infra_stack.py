@@ -20,7 +20,7 @@ class WebInfraStack(Stack):
             self,
             "NextJsVPC",
             max_azs=2,  # Define how many availability zones to use
-            nat_gateways=0,  # Allows outbound traffic to the internet
+            nat_gateways=0,  # Remove NAT gateways for cost savings
             subnet_configuration=[
                 ec2.SubnetConfiguration(
                     name="PublicSubnet", subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=24
@@ -53,7 +53,6 @@ class WebInfraStack(Stack):
                 version=rds.PostgresEngineVersion.VER_16_3
             ),
             vpc=vpc,
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
             instance_type=ec2.InstanceType.of(
                 ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MICRO
             ),  # Smallest RDS instance (t3.micro)
@@ -85,6 +84,9 @@ class WebInfraStack(Stack):
                 iam.ManagedPolicy.from_aws_managed_policy_name(
                     "AmazonEC2ContainerRegistryReadOnly"
                 ),  # ECR에서 이미지 pull
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "AmazonSSMManagedInstanceCore"
+                ),
             ],
         )
 

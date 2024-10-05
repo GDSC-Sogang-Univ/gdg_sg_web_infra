@@ -36,6 +36,11 @@ class CloudFrontStack(Stack):
                 origin=origins.S3Origin(bucket),  # S3 버킷을 CloudFront 원본으로 설정
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             ),
+            enable_ipv6=False,  # IPv6 비활성화
+            price_class=cloudfront.PriceClass.PRICE_CLASS_200,
+            geo_restriction=cloudfront.GeoRestriction.allowlist(  # 지리적 제한 설정
+                "KR",  # 한국 지역 허용
+            ),
             default_root_object="index.html",  # 기본 문서 설정
         )
 

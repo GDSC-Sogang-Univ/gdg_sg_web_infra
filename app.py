@@ -3,6 +3,7 @@ import os
 
 import aws_cdk as cdk
 
+from web_infra.cloudfront import CloudFrontStack
 from web_infra.web_infra_stack import WebInfraStack
 
 app = cdk.App()
@@ -21,6 +22,14 @@ WebInfraStack(
     # want to deploy the stack to. */
     # env=cdk.Environment(account='123456789012', region='us-east-1'),
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
+)
+
+CloudFrontStack(
+    app,
+    "CloudFrontStack",
+    env=cdk.Environment(
+        account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=os.getenv("CDK_DEFAULT_REGION")
+    ),
 )
 
 # EcrToElasticBeanstalkPipelineStack(

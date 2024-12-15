@@ -9,3 +9,6 @@ __pycache__
 .cdk.staging
 cdk.out
 .cdk.context.json
+
+# Ignore CDK assets
+cdk.context.json

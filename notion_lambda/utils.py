@@ -21,33 +21,6 @@ def get_secret(secret_name):
         return None
 
 
-def extract_text_with_annotations(rich_text):
-    """Notion rich_text 데이터를 Markdown 스타일로 변환"""
-    if not rich_text or not isinstance(rich_text, list):
-        return ""
-
-    md_text = ""
-    for text_obj in rich_text:
-        text = text_obj.get("plain_text", "")
-        annotations = text_obj.get("annotations", {})
-
-        # Markdown 스타일 적용
-        if annotations.get("bold"):
-            text = f"**{text}**"
-        if annotations.get("italic"):
-            text = f"*{text}*"
-        if annotations.get("strikethrough"):
-            text = f"~~{text}~~"
-        if annotations.get("underline"):
-            text = f"<u>{text}</u>"  # Markdown에는 표준 밑줄이 없으므로 HTML 사용
-        if annotations.get("code"):
-            text = f"`{text}`"
-
-        md_text += text
-
-    return md_text or ""
-
-
 def sanitize_filename(filename):
     """파일 이름에서 특수 문자를 제거"""
     return re.sub(r"[^\w\-_\.]", "_", filename)

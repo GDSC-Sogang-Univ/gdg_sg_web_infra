@@ -1,6 +1,6 @@
 import os
 
-from utils import download_image, extract_text_with_annotations
+from utils import download_image
 
 list_counter = {"numbered": 0}
 
@@ -9,6 +9,33 @@ def reset_list_counter():
     """리스트 번호를 리셋"""
     global list_counter
     list_counter["numbered"] = 0
+
+
+def extract_text_with_annotations(rich_text):
+    """Notion rich_text 데이터를 Markdown 스타일로 변환"""
+    if not rich_text or not isinstance(rich_text, list):
+        return ""
+
+    md_text = ""
+    for text_obj in rich_text:
+        text = text_obj.get("plain_text", "")
+        annotations = text_obj.get("annotations", {})
+
+        # Markdown 스타일 적용
+        if annotations.get("bold"):
+            text = f"**{text}**"
+        if annotations.get("italic"):
+            text = f"*{text}*"
+        if annotations.get("strikethrough"):
+            text = f"~~{text}~~"
+        if annotations.get("underline"):
+            text = f"<u>{text}</u>"  # Markdown에는 표준 밑줄이 없으므로 HTML 사용
+        if annotations.get("code"):
+            text = f"`{text}`"
+
+        md_text += text
+
+    return md_text or ""
 
 
 def handle_paragraph(block_data):
@@ -109,15 +136,14 @@ def get_block_content(block, page_dir):
         "heading_1": lambda: handle_heading(block_data, 1) or "",
         "heading_2": lambda: handle_heading(block_data, 2) or "",
         "heading_3": lambda: handle_heading(block_data, 3) or "",
-        "bulleted_list_item": lambda: f"- {extract_text_with_annotations(block_data.get('rich_text', []))}"
-        or "",
-        "numbered_list_item": lambda: f"{list_counter['numbered']}. {extract_text_with_annotations(block_data.get('rich_text', []))}"
-        or "",
-        "quote": lambda: f"> {extract_text_with_annotations(block_data.get('rich_text', []))}"
-        or "",
-        "code": lambda: handle_code(block_data) or "",
-        "image": lambda: handle_image(block_data, page_dir) or "",
-        "callout": lambda: handle_callout(block_data) or "",
+        "bulleted_list_item": lambda: handle_list_item(block_data, "-", None),
+        "numbered_list_item": lambda: handle_list_item(
+            block_data, "numbered", list_counter["numbered"]
+        ),
+        "quote": lambda: handle_quote(block_data),
+        "code": lambda: handle_code(block_data),
+        "image": lambda: handle_image(block_data, page_dir),
+        "callout": lambda: handle_callout(block_data),
         "to_do": lambda: handle_to_do(block_data),
         # "toggle": lambda: handle_toggle(block_data, page_dir),
         # "table": lambda: handle_table(block_data, block.get("id")) or "",

@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from datetime import datetime
 
 import boto3
 import urllib3
@@ -61,3 +62,50 @@ def download_image(image_url, page_dir):
         response.release_conn()  # 연결 해제
 
     return local_path
+
+
+def format_date(iso_date):
+    """ISO 8601 날짜를 YYYY/MM/DD 형식으로 변환"""
+    try:
+        dt = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))  # UTC 시간대 처리
+        return dt.strftime("%Y/%m/%d")
+    except Exception as e:
+        print(f"Error formatting date: {e}")
+        return iso_date  # 변환 실패 시 원본 반환
+
+
+def generate_metadata(page, page_title):
+    """Notion 페이지 데이터를 기반으로 MDX 메타데이터 생성"""
+    try:
+        created_time = page.get("created_time", "")
+        date = format_date(created_time)
+        description = (
+            page.get("properties", {})
+            .get("description", {})
+            .get("rich_text", [{}])[0]
+            .get("plain_text", "")
+        )
+        tags = [
+            t.get("name", "")
+            for t in page.get("properties", {}).get("tags", {}).get("multi_select", [])
+        ]
+        author = (
+            page.get("properties", {})
+            .get("author", {})
+            .get("people", [{}])[0]
+            .get("name", "Anonymous")
+        )
+
+        # MDX 메타데이터 구성
+        metadata = f"""---
+title: {page_title}
+date: {date}
+description: {description}
+tags: {tags}
+author: {author}
+---
+"""
+        return metadata
+    except Exception as e:
+        print(f"Error generating metadata for page {page['id']}: {e}")
+        return ""

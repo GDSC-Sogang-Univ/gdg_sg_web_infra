@@ -8,7 +8,7 @@ s3_client = boto3.client("s3")
 
 def save_markdown_to_s3(content, page_title, bucket_name):
     """Markdown 콘텐츠를 S3에 저장"""
-    s3_key = f"pages/{page_title}/page.mdx"
+    s3_key = f"(posts)/{page_title}/page.mdx"
     markdown_local_path = "/tmp/page.md"
 
     # Markdown 파일을 /tmp에 저장
@@ -28,7 +28,7 @@ def save_markdown_to_s3(content, page_title, bucket_name):
 
 def upload_assets_to_s3(page_title, bucket_name):
     """필요한 assets을 S3에 업로드"""
-    s3_key = f"pages/{page_title}"
+    s3_key = f"(posts)/{page_title}"
     assets_local_path = f"/tmp/assets/{page_title}"
 
     try:

@@ -3,7 +3,7 @@ import os
 
 import urllib3
 from converter import get_block_content
-from utils import get_secret
+from utils import generate_metadata, get_secret
 
 # Notion API 설정
 api_secret = get_secret("notion-api-key")
@@ -72,8 +72,12 @@ def fetch_page_content(page_id):
 
 
 def page_to_markdown(page, page_title):
-    """페이지 데이터를 Markdown 형식으로 변환"""
+    """페이지 데이터를 MDX 형식으로 변환"""
     try:
+        # 메타데이터 생성
+        metadata = generate_metadata(page, page_title)
+
+        # 페이지 콘텐츠 변환
         page_content = fetch_page_content(page["id"])
         md_content = []
 
@@ -82,7 +86,8 @@ def page_to_markdown(page, page_title):
             if content.strip():
                 md_content.append(content)
 
-        return "\n\n".join(md_content)
+        # 최종 콘텐츠 결합
+        return metadata + "\n\n" + "\n\n".join(md_content)
     except Exception as e:
         print(f"Error processing page {page['id']}: {e}")
         return ""
@@ -95,3 +100,19 @@ def fetch_table_rows(block_id):
     if response:
         return response.get("results", [])
     return []
+
+
+def update_post_status(post_id, status):
+    """Notion API를 통해 포스트 상태 업데이트"""
+    url = f"{NOTION_API_URL}/pages/{post_id}"
+    payload = {"properties": {"status": {"status": {"name": status}}}}
+    try:
+        response = make_request("PATCH", url, headers=HEADERS, body=payload)
+        if response.status_code == 200:
+            print("Post status updated successfully.")
+        else:
+            print(
+                f"Error updating post status: {response.status_code}, {response.content}"
+            )
+    except Exception as e:
+        print(f"Exception occurred: {e}")

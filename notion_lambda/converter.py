@@ -89,7 +89,7 @@ def handle_image(block_data, page_dir):
         if local_image_path:
             # 같은 폴더 안에서 이미지 파일 이름만 사용
             image_filename = os.path.basename(local_image_path)
-            return f"![{caption}]({image_filename})"
+            return f"![{caption}](./{image_filename})"
         else:
             return f"![{caption}]({image_url})"
     return "![Image]"

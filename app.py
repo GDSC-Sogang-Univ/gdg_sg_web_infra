@@ -3,10 +3,20 @@ import os
 
 import aws_cdk as cdk
 
+from common.vpc import VpcStack
 from contents_platform.cloudfront import CloudFrontStack
 from contents_platform.post_upload import PostUploadStack
+from manage_platform.ec2 import ManagementServiceStack
 
 app = cdk.App()
+
+vpc_stack = VpcStack(
+    app,
+    "VpcStack",
+    env=cdk.Environment(
+        account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=os.getenv("CDK_DEFAULT_REGION")
+    ),
+)
 
 CloudFrontStack(
     app,
@@ -24,6 +34,14 @@ PostUploadStack(
     ),
 )
 
+ManagementServiceStack(
+    app,
+    "ManagementServiceStack",
+    vpc=vpc_stack.vpc,
+    env=cdk.Environment(
+        account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=os.getenv("CDK_DEFAULT_REGION")
+    ),
+)
 
 # EcrToElasticBeanstalkPipelineStack(
 #     app,

@@ -32,3 +32,19 @@ class DBStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
             credentials=rds.Credentials.from_generated_secret("postgres"),
         )
+
+        self.member_management_db = rds.DatabaseInstance(
+            self,
+            "MemberManagementDB",
+            engine=rds.DatabaseInstanceEngine.postgres(
+                version=rds.PostgresEngineVersion.VER_15_7,
+            ),
+            instance_type=ec2.InstanceType.of(
+                ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO
+            ),
+            vpc=vpc,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
+            security_groups=[self.security_group],
+            removal_policy=RemovalPolicy.RETAIN,
+            credentials=rds.Credentials.from_generated_secret("postgres"),
+        )

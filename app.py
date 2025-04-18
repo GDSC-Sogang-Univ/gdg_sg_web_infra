@@ -7,7 +7,6 @@ from common.db import DBStack
 from common.vpc import VpcStack
 from contents_platform.cloudfront import CloudFrontStack
 from contents_platform.post_upload import PostUploadStack
-from manage_platform.ec2 import ManagementServiceStack
 
 app = cdk.App()
 
@@ -44,21 +43,4 @@ PostUploadStack(
     ),
 )
 
-ManagementServiceStack(
-    app,
-    "ManagementServiceStack",
-    vpc=vpc_stack.vpc,
-    db_security_group=db_stack.security_group,
-    env=cdk.Environment(
-        account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=os.getenv("CDK_DEFAULT_REGION")
-    ),
-)
-
-# EcrToElasticBeanstalkPipelineStack(
-#     app,
-#     "EcrToElasticBeanstalkPipelineStack",
-#     env=cdk.Environment(
-#         account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=os.getenv("CDK_DEFAULT_REGION")
-#     ),
-# )
 app.synth()

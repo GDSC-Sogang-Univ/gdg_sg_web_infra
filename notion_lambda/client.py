@@ -71,7 +71,7 @@ def fetch_page_content(page_id):
     return data if data else {}
 
 
-def page_to_markdown(page, page_title):
+def page_to_markdown(page, category, page_title, page_id):
     """페이지 데이터를 MDX 형식으로 변환"""
     try:
         # 메타데이터 생성
@@ -82,7 +82,7 @@ def page_to_markdown(page, page_title):
         md_content = []
 
         for block in page_content.get("results", []):
-            content = get_block_content(block, page_title)
+            content = get_block_content(block, f"{category}/{page_id}")
             if content.strip():
                 md_content.append(content)
 
@@ -107,12 +107,10 @@ def update_post_status(post_id, status):
     url = f"{NOTION_API_URL}/pages/{post_id}"
     payload = {"properties": {"status": {"status": {"name": status}}}}
     try:
-        response = make_request("PATCH", url, headers=HEADERS, body=payload)
-        if response.status_code == 200:
+        result = make_request("PATCH", url, headers=HEADERS, body=payload)
+        if result is not None:
             print("Post status updated successfully.")
         else:
-            print(
-                f"Error updating post status: {response.status_code}, {response.content}"
-            )
+            print("Error updating post status: No response or failed request.")
     except Exception as e:
         print(f"Exception occurred: {e}")

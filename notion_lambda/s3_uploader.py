@@ -6,9 +6,9 @@ from botocore.exceptions import ClientError
 s3_client = boto3.client("s3")
 
 
-def save_markdown_to_s3(content, page_title, bucket_name):
+def save_markdown_to_s3(content, category, page_id, bucket_name):
     """Markdown 콘텐츠를 S3에 저장"""
-    s3_key = f"(posts)/{page_title}/page.mdx"
+    s3_key = f"(posts)/{category}/{page_id}/page.mdx"
     markdown_local_path = "/tmp/page.md"
 
     # Markdown 파일을 /tmp에 저장
@@ -26,10 +26,10 @@ def save_markdown_to_s3(content, page_title, bucket_name):
         return None
 
 
-def upload_assets_to_s3(page_title, bucket_name):
+def upload_assets_to_s3(page_id, category, bucket_name):
     """필요한 assets을 S3에 업로드"""
-    s3_key = f"(posts)/{page_title}"
-    assets_local_path = f"/tmp/assets/{page_title}"
+    s3_key = f"(posts)/{category}/{page_id}"
+    assets_local_path = f"/tmp/assets/{category}/{page_id}"
 
     try:
         # assets 파일들 하나씩 S3에 업로드

@@ -79,22 +79,20 @@ def generate_metadata(page, page_title):
     try:
         created_time = page.get("created_time", "")
         date = format_date(created_time)
-        description = (
-            page.get("properties", {})
-            .get("description", {})
-            .get("rich_text", [{}])[0]
-            .get("plain_text", "")
+
+        # description (rich_text)
+        desc_rich = (
+            page.get("properties", {}).get("description", {}).get("rich_text", [])
         )
-        tags = [
-            t.get("name", "")
-            for t in page.get("properties", {}).get("tags", {}).get("multi_select", [])
-        ]
-        author = (
-            page.get("properties", {})
-            .get("author", {})
-            .get("people", [{}])[0]
-            .get("name", "Anonymous")
-        )
+        description = desc_rich[0].get("plain_text", "") if desc_rich else ""
+
+        # tags (multi_select)
+        tags_raw = page.get("properties", {}).get("tags", {}).get("multi_select", [])
+        tags = [t.get("name", "") for t in tags_raw if "name" in t]
+
+        # author (people)
+        author_raw = page.get("properties", {}).get("author", {}).get("people", [])
+        author = author_raw[0].get("name", "Anonymous") if author_raw else "Anonymous"
 
         # MDX 메타데이터 구성
         metadata = f"""---
@@ -107,5 +105,5 @@ author: {author}
 """
         return metadata
     except Exception as e:
-        print(f"Error generating metadata for page {page['id']}: {e}")
+        print(f"Error generating metadata for page {page.get('id', 'UNKNOWN')}: {e}")
         return ""

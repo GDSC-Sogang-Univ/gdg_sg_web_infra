@@ -3,7 +3,7 @@ import os
 
 import urllib3
 from converter import get_block_content
-from utils import generate_metadata, get_secret
+from utils import download_thumbnail, generate_metadata, get_secret
 
 # Notion API 설정
 api_secret = get_secret("notion-api-key")
@@ -71,18 +71,21 @@ def fetch_page_content(page_id):
     return data if data else {}
 
 
-def page_to_markdown(page, category, page_title, page_id):
+def page_to_markdown(page, page_title, page_id):
     """페이지 데이터를 MDX 형식으로 변환"""
     try:
         # 메타데이터 생성
         metadata = generate_metadata(page, page_title)
+
+        # thumbnail 다운로드
+        thumbnail_path = download_thumbnail(page, page_id)
 
         # 페이지 콘텐츠 변환
         page_content = fetch_page_content(page["id"])
         md_content = []
 
         for block in page_content.get("results", []):
-            content = get_block_content(block, f"{category}/{page_id}")
+            content = get_block_content(block, f"{page_id}")
             if content.strip():
                 md_content.append(content)
 

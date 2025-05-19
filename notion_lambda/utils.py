@@ -1,4 +1,5 @@
 import json
+import mimetypes
 import os
 import re
 from datetime import datetime
@@ -72,6 +73,44 @@ def format_date(iso_date):
     except Exception as e:
         print(f"Error formatting date: {e}")
         return iso_date  # 변환 실패 시 원본 반환
+
+
+def download_thumbnail(page, page_dir):
+    """페이지 커버를 썸네일로 다운로드"""
+    try:
+        cover = page.get("cover")
+        if not cover:
+            print("No cover found.")
+            return None
+
+        cover_type = cover.get("type")
+        image_url = ""
+
+        if cover_type == "external":
+            image_url = cover.get("external", {}).get("url", "")
+        elif cover_type == "file":
+            image_url = cover.get("file", {}).get("url", "")
+
+        if not image_url:
+            print("Cover URL not found.")
+            return None
+
+        local_path = download_image(image_url, page_dir)
+        if not local_path:
+            print("Image download failed.")
+            return None
+
+        _, ext = os.path.splitext(local_path)
+
+        # 확장자 확인 후 thumbnail 파일명 지정
+        thumbnail_path = os.path.join(os.path.dirname(local_path), f"thumbnail{ext}")
+        os.rename(local_path, thumbnail_path)
+        print(f"Thumbnail saved: {thumbnail_path}")
+        return thumbnail_path
+
+    except Exception as e:
+        print(f"Error fetching thumbnail image: {e}")
+        return None
 
 
 def generate_metadata(page, page_title):

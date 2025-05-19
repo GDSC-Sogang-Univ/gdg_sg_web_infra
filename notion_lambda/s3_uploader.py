@@ -29,7 +29,7 @@ def save_markdown_to_s3(content, category, page_id, bucket_name):
 def upload_assets_to_s3(page_id, category, bucket_name):
     """필요한 assets을 S3에 업로드"""
     s3_key = f"(posts)/{category}/{page_id}"
-    assets_local_path = f"/tmp/assets/{category}/{page_id}"
+    assets_local_path = f"/tmp/assets/{page_id}"
 
     try:
         # assets 파일들 하나씩 S3에 업로드

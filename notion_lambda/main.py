@@ -80,7 +80,7 @@ def lambda_handler(event, context):
             matched = True  # ID 일치 → 처리
 
         # Markdown 콘텐츠 생성 및 업로드
-        page_markdown = page_to_markdown(page, category, page_title, custom_id)
+        page_markdown = page_to_markdown(page, page_title, custom_id)
         save_markdown_to_s3(page_markdown, category, custom_id, S3_BUCKET_NAME)
         upload_assets_to_s3(custom_id, category, S3_BUCKET_NAME)
         update_post_status(page["id"], "Uploaded")

@@ -1,9 +1,9 @@
 import json
 import os
 
-from client import fetch_database_pages, page_to_markdown, update_post_status
-from s3_uploader import save_markdown_to_s3, upload_assets_to_s3
-from utils import get_secret
+from .client import fetch_database_pages, page_to_markdown, update_post_status
+from .s3_uploader import save_markdown_to_s3, upload_assets_to_s3
+from .utils import get_secret
 
 # 환경 변수에서 설정 가져오기
 DATABASE_ID = os.getenv("DATABASE_ID", "your-database-id")

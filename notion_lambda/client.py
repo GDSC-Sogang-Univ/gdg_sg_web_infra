@@ -2,8 +2,9 @@ import json
 import os
 
 import urllib3
-from converter import get_block_content
-from utils import download_thumbnail, generate_metadata, get_secret
+
+from .converter import get_block_content
+from .utils import download_thumbnail, generate_metadata, get_secret
 
 # Notion API 설정
 api_secret = get_secret("notion-api-key")

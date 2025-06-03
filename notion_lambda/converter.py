@@ -1,6 +1,6 @@
 import os
 
-from utils import download_image
+from .utils import download_image
 
 list_counter = {"numbered": 0}
 
@@ -9,6 +9,45 @@ def reset_list_counter():
     """리스트 번호를 리셋"""
     global list_counter
     list_counter["numbered"] = 0
+
+
+def get_number_format(number, indent_level):
+    """들여쓰기 레벨에 따른 번호 형식 반환
+
+    Args:
+        number: 현재 번호
+        indent_level: 들여쓰기 레벨
+    """
+    if indent_level == 0:
+        return str(number)  # 1, 2, 3, ...
+    elif indent_level == 1:
+        return chr(96 + number)  # a, b, c, ...
+    elif indent_level == 2:
+        # i, ii, iii, ...
+        roman = ""
+        num = number
+        roman_nums = [
+            (1000, "m"),
+            (900, "cm"),
+            (500, "d"),
+            (400, "cd"),
+            (100, "c"),
+            (90, "xc"),
+            (50, "l"),
+            (40, "xl"),
+            (10, "x"),
+            (9, "ix"),
+            (5, "v"),
+            (4, "iv"),
+            (1, "i"),
+        ]
+        for value, letter in roman_nums:
+            while num >= value:
+                roman += letter
+                num -= value
+        return roman
+    else:
+        return str(number)  # 기본값
 
 
 def extract_text_with_annotations(rich_text):
@@ -27,7 +66,7 @@ def extract_text_with_annotations(rich_text):
         if annotations.get("italic"):
             text = f"*{text}*"
         if annotations.get("strikethrough"):
-            text = f"~~{text}~~"
+            text = f"<s>{text}</s>"  # 취소선
         if annotations.get("underline"):
             text = f"<u>{text}</u>"  # Markdown에는 표준 밑줄이 없으므로 HTML 사용
         if annotations.get("code"):
@@ -49,11 +88,12 @@ def handle_heading(block_data, level):
     return f"{'#' * level} {text}" if text else f"{'#' * level} "
 
 
-def handle_list_item(block_data, prefix_type, counter=None):
+def handle_list_item(block_data, prefix_type, counter=None, indent_level=0):
     """
     Markdown 변환: List Item (Bulleted or Numbered)
     - prefix_type: "-" (bulleted), "numbered" (numbered list)
     - counter: numbered list를 위한 현재 번호
+    - indent_level: 들여쓰기 레벨
     """
     text = extract_text_with_annotations(block_data.get("rich_text", []))
 
@@ -61,7 +101,8 @@ def handle_list_item(block_data, prefix_type, counter=None):
         return f"- {text}"
     elif prefix_type == "numbered":
         if counter is not None:
-            return f"{counter}. {text}"
+            number = get_number_format(counter, indent_level)
+            return f"{number}. {text}"
     return f"{prefix_type} {text}"  # 기본 fallback
 
 
@@ -120,8 +161,48 @@ def handle_table(block_data, block_id):
     pass
 
 
-def get_block_content(block, page_dir):
-    """블록 데이터를 Markdown 형식으로 변환"""
+def handle_divider(block_data):
+    """Markdown 변환: Divider"""
+    return "---"
+
+
+def handle_child_block(block_data, page_dir, indent_level=0):
+    """자식 블록 처리
+
+    Args:
+        block_data: 부모 블록 데이터
+        page_dir: 페이지 디렉토리
+        indent_level: 현재 들여쓰기 레벨
+    """
+    from .client import fetch_page_content
+
+    child_blocks = fetch_page_content(block_data["id"])
+    if not child_blocks or "results" not in child_blocks:
+        return ""
+
+    reset_list_counter()
+    child_contents = []
+
+    for child_block in child_blocks["results"]:
+        child_content = get_block_content(child_block, page_dir, indent_level + 1)
+        if child_content.strip():
+            # 각 줄을 4칸 들여쓰기
+            indented_content = "\n".join(
+                "    " + line for line in child_content.split("\n")
+            )
+            child_contents.append(indented_content)
+
+    return "\n" + "\n".join(child_contents) if child_contents else ""
+
+
+def get_block_content(block, page_dir, indent_level=0):
+    """블록 데이터를 Markdown 형식으로 변환
+
+    Args:
+        block: Notion block 데이터
+        page_dir: 페이지 디렉토리
+        indent_level: 현재 들여쓰기 레벨 (기본값: 0)
+    """
     block_type = block.get("type")
     block_data = block.get(block_type, {})
 
@@ -138,13 +219,14 @@ def get_block_content(block, page_dir):
         "heading_3": lambda: handle_heading(block_data, 3) or "",
         "bulleted_list_item": lambda: handle_list_item(block_data, "-", None),
         "numbered_list_item": lambda: handle_list_item(
-            block_data, "numbered", list_counter["numbered"]
+            block_data, "numbered", list_counter["numbered"], indent_level
         ),
         "quote": lambda: handle_quote(block_data),
         "code": lambda: handle_code(block_data),
         "image": lambda: handle_image(block_data, page_dir),
         "callout": lambda: handle_callout(block_data),
         "to_do": lambda: handle_to_do(block_data),
+        "divider": lambda: handle_divider(block_data),
         # "toggle": lambda: handle_toggle(block_data, page_dir),
         # "table": lambda: handle_table(block_data, block.get("id")) or "",
     }
@@ -152,7 +234,13 @@ def get_block_content(block, page_dir):
     handler = handlers.get(block_type)
     if handler:
         try:
-            return handler()
+            content = handler()
+
+            # child blocks 처리
+            if block.get("has_children", False):
+                content += handle_child_block(block, page_dir, indent_level)
+
+            return content
         except Exception as e:
             print(f"Error processing block of type '{block_type}': {e}")
             return f"[{block_type.upper()} BLOCK ERROR]"

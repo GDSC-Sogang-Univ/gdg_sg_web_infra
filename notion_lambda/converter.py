@@ -11,43 +11,15 @@ def reset_list_counter():
     list_counter["numbered"] = 0
 
 
-def get_number_format(number, indent_level):
+def get_number_format(number):
     """들여쓰기 레벨에 따른 번호 형식 반환
 
     Args:
         number: 현재 번호
         indent_level: 들여쓰기 레벨
     """
-    if indent_level == 0:
-        return str(number)  # 1, 2, 3, ...
-    elif indent_level == 1:
-        return chr(96 + number)  # a, b, c, ...
-    elif indent_level == 2:
-        # i, ii, iii, ...
-        roman = ""
-        num = number
-        roman_nums = [
-            (1000, "m"),
-            (900, "cm"),
-            (500, "d"),
-            (400, "cd"),
-            (100, "c"),
-            (90, "xc"),
-            (50, "l"),
-            (40, "xl"),
-            (10, "x"),
-            (9, "ix"),
-            (5, "v"),
-            (4, "iv"),
-            (1, "i"),
-        ]
-        for value, letter in roman_nums:
-            while num >= value:
-                roman += letter
-                num -= value
-        return roman
-    else:
-        return str(number)  # 기본값
+
+    return str(number)  # 1, 2, 3, ...
 
 
 def extract_text_with_annotations(rich_text):
@@ -101,7 +73,7 @@ def handle_list_item(block_data, prefix_type, counter=None, indent_level=0):
         return f"- {text}"
     elif prefix_type == "numbered":
         if counter is not None:
-            number = get_number_format(counter, indent_level)
+            number = get_number_format(counter)
             return f"{number}. {text}"
     return f"{prefix_type} {text}"  # 기본 fallback
 

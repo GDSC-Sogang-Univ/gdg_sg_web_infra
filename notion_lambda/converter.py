@@ -174,7 +174,7 @@ def handle_child_block(block_data, page_dir, category, indent_level=0):
         page_dir: 페이지 디렉토리
         indent_level: 현재 들여쓰기 레벨
     """
-    from .client import fetch_page_content
+    from client import fetch_page_content
 
     child_blocks = fetch_page_content(block_data["id"])
     if not child_blocks or "results" not in child_blocks:

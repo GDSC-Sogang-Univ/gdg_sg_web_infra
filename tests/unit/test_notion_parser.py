@@ -29,7 +29,7 @@ def test_convert():
 
     content = ""
     for block in result["results"]:
-        content += get_block_content(block, "test") + "\n"
+        content += get_block_content(block, "test", "web") + "\n"
 
     print("\n=== Converted Content ===")
     print(content)

@@ -1,6 +1,6 @@
 import os
 
-from .utils import download_image
+from utils import download_image
 
 list_counter = {"numbered": 0}
 
@@ -119,7 +119,7 @@ def handle_code(block_data):
     return f"```{language}\n{text}\n```" if text else f"```{language}\n\n```"
 
 
-def handle_image(block_data, page_dir):
+def handle_image(block_data, category, page_dir):
     """Markdown 변환: Image"""
     image_url = block_data.get("file", {}).get("url", "")
     caption = extract_text_with_annotations(block_data.get("caption", []))
@@ -130,7 +130,7 @@ def handle_image(block_data, page_dir):
         if local_image_path:
             # 같은 폴더 안에서 이미지 파일 이름만 사용
             image_filename = os.path.basename(local_image_path)
-            return f"![{caption}](/(posts)/{page_dir}/{image_filename})"
+            return f"![{caption}](/posts/{category}/{page_dir}/{image_filename})"
         else:
             return f"![{caption}]({image_url})"
     return "![Image]"
@@ -166,7 +166,7 @@ def handle_divider(block_data):
     return "---"
 
 
-def handle_child_block(block_data, page_dir, indent_level=0):
+def handle_child_block(block_data, page_dir, category, indent_level=0):
     """자식 블록 처리
 
     Args:
@@ -184,7 +184,9 @@ def handle_child_block(block_data, page_dir, indent_level=0):
     child_contents = []
 
     for child_block in child_blocks["results"]:
-        child_content = get_block_content(child_block, page_dir, indent_level + 1)
+        child_content = get_block_content(
+            child_block, page_dir, category, indent_level + 1
+        )
         if child_content.strip():
             # 각 줄을 4칸 들여쓰기
             indented_content = "\n".join(
@@ -195,7 +197,7 @@ def handle_child_block(block_data, page_dir, indent_level=0):
     return "\n" + "\n".join(child_contents) if child_contents else ""
 
 
-def get_block_content(block, page_dir, indent_level=0):
+def get_block_content(block, page_dir, category, indent_level=0):
     """블록 데이터를 Markdown 형식으로 변환
 
     Args:
@@ -223,7 +225,7 @@ def get_block_content(block, page_dir, indent_level=0):
         ),
         "quote": lambda: handle_quote(block_data),
         "code": lambda: handle_code(block_data),
-        "image": lambda: handle_image(block_data, page_dir),
+        "image": lambda: handle_image(block_data, category, page_dir),
         "callout": lambda: handle_callout(block_data),
         "to_do": lambda: handle_to_do(block_data),
         "divider": lambda: handle_divider(block_data),
@@ -238,7 +240,7 @@ def get_block_content(block, page_dir, indent_level=0):
 
             # child blocks 처리
             if block.get("has_children", False):
-                content += handle_child_block(block, page_dir, indent_level)
+                content += handle_child_block(block, page_dir, category, indent_level)
 
             return content
         except Exception as e:

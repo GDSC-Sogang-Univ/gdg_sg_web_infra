@@ -2,9 +2,8 @@ import json
 import os
 
 import urllib3
-
-from .converter import get_block_content
-from .utils import download_thumbnail, generate_metadata, get_secret
+from converter import get_block_content
+from utils import download_thumbnail, generate_metadata, get_secret
 
 # Notion API 설정
 api_secret = get_secret("notion-api-key")
@@ -72,7 +71,7 @@ def fetch_page_content(page_id):
     return data if data else {}
 
 
-def page_to_markdown(page, page_title, page_id):
+def page_to_markdown(page, page_title, category, page_id):
     """페이지 데이터를 MDX 형식으로 변환"""
     try:
         # 메타데이터 생성
@@ -86,7 +85,7 @@ def page_to_markdown(page, page_title, page_id):
         md_content = []
 
         for block in page_content.get("results", []):
-            content = get_block_content(block, f"{page_id}")
+            content = get_block_content(block, page_id, category)
             if content.strip():
                 md_content.append(content)
 

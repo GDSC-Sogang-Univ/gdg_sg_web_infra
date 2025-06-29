@@ -1,9 +1,9 @@
 import json
 import os
 
-from .client import fetch_database_pages, page_to_markdown, update_post_status
-from .s3_uploader import save_markdown_to_s3, upload_assets_to_s3
-from .utils import get_secret
+from client import fetch_database_pages, page_to_markdown, update_post_status
+from s3_uploader import save_markdown_to_s3, upload_assets_to_s3
+from utils import get_secret
 
 # 환경 변수에서 설정 가져오기
 DATABASE_ID = os.getenv("DATABASE_ID", "your-database-id")
@@ -80,7 +80,7 @@ def lambda_handler(event, context):
             matched = True  # ID 일치 → 처리
 
         # Markdown 콘텐츠 생성 및 업로드
-        page_markdown = page_to_markdown(page, page_title, custom_id)
+        page_markdown = page_to_markdown(page, page_title, category, custom_id)
         save_markdown_to_s3(page_markdown, category, custom_id, S3_BUCKET_NAME)
         upload_assets_to_s3(custom_id, category, S3_BUCKET_NAME)
         update_post_status(page["id"], "Uploaded")

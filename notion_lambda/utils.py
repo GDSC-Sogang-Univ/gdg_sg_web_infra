@@ -2,6 +2,7 @@ import json
 import mimetypes
 import os
 import re
+import uuid
 from datetime import datetime
 
 import boto3
@@ -24,8 +25,9 @@ def get_secret(secret_name):
 
 
 def sanitize_filename(filename):
-    """파일 이름에서 특수 문자를 제거"""
-    return re.sub(r"[^\w\-_\.]", "_", filename)
+    """파일 이름에서 특수 문자를 제거 후 랜덤 문자열 추가"""
+    sanitized = re.sub(r"[^\w\-_\.]", "_", filename)
+    return f"{sanitized}_{uuid.uuid4().hex[:8]}"
 
 
 def download_image(image_url, page_dir):

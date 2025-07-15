@@ -31,6 +31,7 @@ def extract_text_with_annotations(rich_text):
     for text_obj in rich_text:
         text = text_obj.get("plain_text", "")
         annotations = text_obj.get("annotations", {})
+        link = text_obj.get("text", {}).get("link", {})
 
         # Markdown 스타일 적용
         if annotations.get("bold"):
@@ -43,6 +44,11 @@ def extract_text_with_annotations(rich_text):
             text = f"<u>{text}</u>"  # Markdown에는 표준 밑줄이 없으므로 HTML 사용
         if annotations.get("code"):
             text = f"`{text}`"
+
+        if link:
+            url = link.get("url", "")
+            if url:
+                text = f"[{text}]({url})"
 
         md_text += text
 
@@ -166,7 +172,12 @@ def handle_child_block(block_data, page_dir, category, indent_level=0):
             )
             child_contents.append(indented_content)
 
-    return "\n" + "\n".join(child_contents) if child_contents else ""
+    # 각 child block 사이에 <br />\n 추가
+    return (
+        "<br />\n" + f"<br />\n".join(child_contents) + "<br />\n"
+        if child_contents
+        else ""
+    )
 
 
 def get_block_content(block, page_dir, category, indent_level=0):
@@ -209,14 +220,13 @@ def get_block_content(block, page_dir, category, indent_level=0):
     if handler:
         try:
             content = handler()
-
             # child blocks 처리
             if block.get("has_children", False):
                 content += handle_child_block(block, page_dir, category, indent_level)
-
-            return content
+            # 블록 간 구분을 위해 항상 <br />로 개행 추가
+            return content.rstrip() + "<br />\n"
         except Exception as e:
             print(f"Error processing block of type '{block_type}': {e}")
-            return f"[{block_type.upper()} BLOCK ERROR]"
+            return f"[{block_type.upper()} BLOCK ERROR]<br />\n"
     else:
-        return f"[{block_type.upper()} BLOCK NOT SUPPORTED]"
+        return f"[{block_type.upper()} BLOCK NOT SUPPORTED]<br />\n"

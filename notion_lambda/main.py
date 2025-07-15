@@ -175,6 +175,7 @@ def handle_upload_request(event):
         print(f"Error parsing properties: {e}")
 
     page_markdown = page_to_markdown(page, page_title, category, custom_id)
+    delete_post_from_s3(custom_id, category, S3_BUCKET_NAME)
     save_markdown_to_s3(page_markdown, category, custom_id, S3_BUCKET_NAME)
     upload_assets_to_s3(custom_id, category, S3_BUCKET_NAME)
     update_post_status(page["id"], "Uploaded")

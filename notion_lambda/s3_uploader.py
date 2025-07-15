@@ -41,3 +41,39 @@ def upload_assets_to_s3(page_id, category, bucket_name):
                 print(f"Uploaded to S3: {s3_key}/{s3_file}")
     except ClientError as e:
         print(f"Error uploading assets to S3: {e}")
+
+
+def delete_post_from_s3(custom_id, category, bucket_name):
+    """S3에서 특정 포스트의 모든 파일을 삭제"""
+    try:
+        # 삭제할 포스트의 키
+        target_key = f"posts/{category}/{custom_id}/"
+        try:
+            # assets 폴더의 모든 객체 리스트
+            response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=target_key)
+
+            if "Contents" in response:
+                # 모든 객체 삭제
+                objects_to_delete = [
+                    {"Key": obj["Key"]} for obj in response["Contents"]
+                ]
+                if objects_to_delete:
+                    s3_client.delete_objects(
+                        Bucket=bucket_name, Delete={"Objects": objects_to_delete}
+                    )
+                    print(
+                        f"Deleted {len(objects_to_delete)} asset files from {target_key}"
+                    )
+                else:
+                    print(f"No asset files found in {target_key}")
+            else:
+                print(f"No assets folder found: {target_key}")
+
+        except Exception as e:
+            print(f"Error deleting assets from {target_key}: {e}")
+
+        return True
+
+    except Exception as e:
+        print(f"Error in delete_post_from_s3: {e}")
+        return False

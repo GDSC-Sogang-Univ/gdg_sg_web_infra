@@ -2,7 +2,7 @@ import json
 import os
 
 from client import fetch_database_pages, page_to_markdown, update_post_status
-from s3_uploader import save_markdown_to_s3, upload_assets_to_s3
+from s3_uploader import delete_post_from_s3, save_markdown_to_s3, upload_assets_to_s3
 from utils import get_secret
 
 # 환경 변수에서 설정 가져오기
@@ -19,8 +19,6 @@ assert FIXED_TOKEN, "auth token를 가져올 수 없습니다"
 
 
 def lambda_handler(event, context):
-    """Lambda 엔트리 포인트"""
-
     headers = event.get("headers", {})
     auth_token = headers.get("Authorization", None)
 
@@ -30,7 +28,103 @@ def lambda_handler(event, context):
             "body": json.dumps({"message": "Unauthorized"}),
         }
 
-    # 특정 ID만 업로드하는 경우
+    # 경로에 따라 업로드/삭제 분기
+    path = event.get("resource") or event.get("path", "")
+    # API Gateway Proxy 통합이면 resource, 아니면 path 사용
+    if path.endswith("/upload"):
+        return handle_upload_request(event)
+    elif path.endswith("/delete"):
+        return handle_delete_request(event)
+    else:
+        return {
+            "statusCode": 404,
+            "body": json.dumps({"message": "Invalid endpoint"}),
+        }
+
+
+def find_page_by_custom_id(database_id, custom_id):
+    """custom_id로 Notion page 객체 찾기"""
+    pages = fetch_database_pages(database_id)
+    for page in pages:
+        try:
+            for key, value in page.get("properties", {}).items():
+                if key == "ID" and value.get("type") == "unique_id":
+                    uid = value.get("unique_id", {})
+                    if str(uid.get("number", "")) == str(custom_id):
+                        return page
+        except Exception:
+            continue
+    return None
+
+
+def handle_delete_request(event):
+    body = event.get("body", None)
+    if not body:
+        return {
+            "statusCode": 400,
+            "body": json.dumps(
+                {"message": "Request body is required for delete operation"}
+            ),
+        }
+    try:
+        body_data = json.loads(body)
+        target_custom_id = (
+            body_data.get("data", {})
+            .get("properties", {})
+            .get("ID", {})
+            .get("unique_id", {})
+            .get("number", None)
+        )
+        if target_custom_id is not None:
+            target_custom_id = str(target_custom_id)
+    except json.JSONDecodeError:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"message": "Invalid JSON format in body"}),
+        }
+
+    if not target_custom_id:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"message": "custom_id is required in request body"}),
+        }
+    # Notion page 객체 찾기
+    page = find_page_by_custom_id(DATABASE_ID, target_custom_id)
+    if not page:
+        return {
+            "statusCode": 404,
+            "body": json.dumps(
+                {"message": f"No post found with custom ID: {target_custom_id}"}
+            ),
+        }
+    category = "web"
+    try:
+        for key, value in page.get("properties", {}).items():
+            if value.get("type") == "select":
+                category = value.get("select", {}).get("name", "web")
+    except Exception as e:
+        print(f"Error parsing category: {e}")
+    # S3에서 파일 삭제
+    success = delete_post_from_s3(target_custom_id, category, S3_BUCKET_NAME)
+    if success:
+        update_post_status(page["id"], "Not Uploaded")
+        return {
+            "statusCode": 200,
+            "body": json.dumps(
+                {"message": f"Post {target_custom_id} deleted successfully"}
+            ),
+        }
+    else:
+        return {
+            "statusCode": 500,
+            "body": json.dumps(
+                {"message": f"Failed to delete post {target_custom_id}"}
+            ),
+        }
+
+
+def handle_upload_request(event):
+    # custom_id는 필수
     target_custom_id = None
     body = event.get("body", None)
     if body:
@@ -51,50 +145,39 @@ def lambda_handler(event, context):
                 "body": json.dumps({"message": "Invalid JSON format in body"}),
             }
 
-    pages = fetch_database_pages(DATABASE_ID)
-    matched = False
+    if not target_custom_id:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"message": "custom_id is required in request body"}),
+        }
 
-    for page in pages:
-        page_title = "Untitled"
-        category = "web"
-        custom_id = None
-
-        try:
-            for key, value in page.get("properties", {}).items():
-                if value.get("type") == "title":
-                    page_title = "".join(
-                        t.get("plain_text", "") for t in value.get("title", [])
-                    )
-                elif value.get("type") == "select":
-                    category = value.get("select", {}).get("name", "web")
-                elif key == "ID" and value.get("type") == "unique_id":
-                    uid = value.get("unique_id", {})
-                    custom_id = str(uid.get("number", ""))
-        except Exception as e:
-            print(f"Error parsing properties: {e}")
-            continue
-
-        if target_custom_id:
-            if custom_id != target_custom_id:
-                continue
-            matched = True  # ID 일치 → 처리
-
-        # Markdown 콘텐츠 생성 및 업로드
-        page_markdown = page_to_markdown(page, page_title, category, custom_id)
-        save_markdown_to_s3(page_markdown, category, custom_id, S3_BUCKET_NAME)
-        upload_assets_to_s3(custom_id, category, S3_BUCKET_NAME)
-        update_post_status(page["id"], "Uploaded")
-
-        if target_custom_id:
-            break  # 타겟 포스트만 처리했으면 루프 종료
-
-    if target_custom_id and not matched:
+    page = find_page_by_custom_id(DATABASE_ID, target_custom_id)
+    if not page:
         return {
             "statusCode": 404,
             "body": json.dumps(
                 {"message": f"No post found with custom ID: {target_custom_id}"}
             ),
         }
+
+    page_title = "Untitled"
+    category = "web"
+    custom_id = target_custom_id
+    try:
+        for key, value in page.get("properties", {}).items():
+            if value.get("type") == "title":
+                page_title = "".join(
+                    t.get("plain_text", "") for t in value.get("title", [])
+                )
+            elif value.get("type") == "select":
+                category = value.get("select", {}).get("name", "web")
+    except Exception as e:
+        print(f"Error parsing properties: {e}")
+
+    page_markdown = page_to_markdown(page, page_title, category, custom_id)
+    save_markdown_to_s3(page_markdown, category, custom_id, S3_BUCKET_NAME)
+    upload_assets_to_s3(custom_id, category, S3_BUCKET_NAME)
+    update_post_status(page["id"], "Uploaded")
 
     return {
         "statusCode": 200,

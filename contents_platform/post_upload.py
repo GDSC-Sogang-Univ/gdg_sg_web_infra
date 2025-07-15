@@ -53,10 +53,13 @@ class PostUploadStack(Stack):
                 actions=[
                     "s3:GetObject",
                     "s3:PutObject",
+                    "s3:DeleteObject",
+                    "s3:ListBucket",
                     "secretsmanager:GetSecretValue",
                 ],
                 resources=[
                     post_bucket.bucket_arn + "/*",  # S3 버킷의 모든 객체
+                    post_bucket.bucket_arn,  # S3 버킷 자체 (ListBucket용)
                     notion_api_secret.secret_arn,  # Secrets Manager ARN
                 ],
             )
@@ -76,9 +79,9 @@ class PostUploadStack(Stack):
             proxy=True,  # 요청을 Lambda에 그대로 전달
         )
 
-        # API 경로 및 메서드 추가
-        api_resource = api.root.add_resource("upload")
-        api_resource.add_method(
+        # /upload 엔드포인트 (업로드)
+        upload_resource = api.root.add_resource("upload")
+        upload_resource.add_method(
             "POST",
             post_upload_integration,
             method_responses=[
@@ -101,7 +104,44 @@ class PostUploadStack(Stack):
             },
         )
 
-        # API Gateway에 CORS 추가
+        # /delete 엔드포인트 (삭제)
+        delete_resource = api.root.add_resource("delete")
+        delete_resource.add_method(
+            "POST",
+            post_upload_integration,
+            method_responses=[
+                apigateway.MethodResponse(
+                    status_code="200",
+                    response_parameters={
+                        "method.response.header.Access-Control-Allow-Origin": True,
+                        "method.response.header.Access-Control-Allow-Headers": True,
+                    },
+                ),
+                apigateway.MethodResponse(
+                    status_code="400",
+                    response_parameters={
+                        "method.response.header.Access-Control-Allow-Origin": True,
+                    },
+                ),
+                apigateway.MethodResponse(
+                    status_code="403",
+                    response_parameters={
+                        "method.response.header.Access-Control-Allow-Origin": True,
+                    },
+                ),
+                apigateway.MethodResponse(
+                    status_code="500",
+                    response_parameters={
+                        "method.response.header.Access-Control-Allow-Origin": True,
+                    },
+                ),
+            ],
+            request_parameters={
+                "method.request.header.Authorization": True,
+            },
+        )
+
+        # API Gateway에 CORS 추가 (OPTIONS, POST만 허용)
         api.root.add_method(
             "OPTIONS",
             apigateway.MockIntegration(

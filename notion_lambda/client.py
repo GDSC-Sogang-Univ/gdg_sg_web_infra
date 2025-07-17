@@ -18,7 +18,7 @@ HEADERS = {
 http = urllib3.PoolManager()
 
 
-def make_request(method, url, headers=None, body=None):
+def make_request(method, url, headers=None, body=None, params=None):
     """Notion API 요청 처리"""
     try:
         response = http.request(
@@ -26,6 +26,7 @@ def make_request(method, url, headers=None, body=None):
             url,
             headers=headers or {},
             body=json.dumps(body) if body else None,
+            fields=params,
         )
         if response.status >= 200 and response.status < 300:
             return json.loads(response.data.decode("utf-8"))
@@ -65,10 +66,27 @@ def fetch_database_pages(database_id):
 
 
 def fetch_page_content(page_id):
-    """페이지 콘텐츠 가져오기"""
+    """페이지의 모든 블록을 페이지네이션으로 가져오기"""
     url = f"{NOTION_API_URL}/blocks/{page_id}/children"
-    data = make_request("GET", url, headers=HEADERS)
-    return data if data else {}
+    all_results = []
+    start_cursor = None
+
+    while True:
+        params = {"page_size": 100}
+        if start_cursor:
+            params["start_cursor"] = start_cursor
+        data = make_request("GET", url, headers=HEADERS, body=None, params=params)
+        if not data:
+            break
+        all_results.extend(data.get("results", []))
+        if not data.get("has_more"):
+            break
+        start_cursor = data.get("next_cursor")
+
+    return {
+        "object": "list",
+        "results": all_results,
+    }
 
 
 def page_to_markdown(page, page_title, category, page_id):

@@ -173,7 +173,7 @@ def handle_child_block(block_data, page_dir, category, indent_level=0):
             child_contents.append(indented_content)
 
     # 각 child block 사이에 <br />\n 추가
-    return f"\n<br />".join(child_contents) if child_contents else ""
+    return f"\n".join(child_contents) if child_contents else ""
 
 
 def get_block_content(block, page_dir, category, indent_level=0):
@@ -220,7 +220,7 @@ def get_block_content(block, page_dir, category, indent_level=0):
             if block.get("has_children", False):
                 content += handle_child_block(block, page_dir, category, indent_level)
             # 블록 간 구분을 위해 항상 <br />로 개행 추가
-            return content.rstrip() + "\n<br />"
+            return content
         except Exception as e:
             print(f"Error processing block of type '{block_type}': {e}")
             return f"[{block_type.upper()} BLOCK ERROR]<br />\n"
